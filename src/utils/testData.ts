@@ -123,3 +123,41 @@ export const updateSubmissionConfig = async (config: any) => {
     throw error;
   }
 };
+
+export const updateApp = async (appName: string, appData: any) => {
+  try {
+    const response = await fetch(`/api/app/${encodeURIComponent(appName)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(appData),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update app: ${response.status}`);
+    }
+    const data = await response.text();
+    console.log('Update app API response:', data);
+    return data;
+  } catch (error) {
+    console.error('Error updating app:', error);
+    throw error;
+  }
+};
+
+export const deleteApp = async (appName: string) => {
+  try {
+    const response = await fetch(`/api/app/${encodeURIComponent(appName)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete app: ${response.status}`);
+    }
+    const data = await response.text();
+    console.log('Delete app API response:', data);
+    return data;
+  } catch (error) {
+    console.error('Error deleting app:', error);
+    throw error;
+  }
+};
