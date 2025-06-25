@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { Edit3, Trash2, Power, PowerOff, AlertCircle, Clock, User, Server, Eye } from 'lucide-react';
+import { Edit3, Trash2, Power, PowerOff, AlertCircle, Clock, User, Server, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useToastContext } from '@/contexts/ToastContext';
-import { loadApps, updateSubmissionConfig } from '@/utils/testData';
+import { loadApps, updateSubmissionConfig, updateApp, deleteApp } from '@/utils/testData';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import EditApplicationDialog from '@/components/EditApplicationDialog';
 
@@ -30,9 +30,11 @@ const ApplicationsManager: React.FC = () => {
   const [editDialog, setEditDialog] = useState<{
     isOpen: boolean;
     application: AppData | null;
+    isNew?: boolean;
   }>({
     isOpen: false,
-    application: null
+    application: null,
+    isNew: false
   });
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -71,22 +73,47 @@ const ApplicationsManager: React.FC = () => {
   const handleEdit = (application: AppData) => {
     setEditDialog({
       isOpen: true,
-      application: application
+      application: application,
+      isNew: false
+    });
+  };
+
+  const handleAddNew = () => {
+    const newApp: AppData = {
+      appName: '',
+      changeNumber: '',
+      applicationOwner: '',
+      maintenanceWindow: '',
+      changeDescription: '',
+      infrastructureImpact: '',
+      hosts: [],
+      disabled: false
+    };
+    
+    setEditDialog({
+      isOpen: true,
+      application: newApp,
+      isNew: true
     });
   };
 
   const handleSave = async (updatedApp: AppData) => {
     try {
-      // Update local state
-      const updatedApps = applications.map(app => 
-        app.appName === updatedApp.appName ? updatedApp : app
-      );
-      
-      setApplications(updatedApps);
-      showSuccess('Success', 'Application updated successfully');
+      if (editDialog.isNew) {
+        // Add new application
+        const updatedApps = [...applications, updatedApp];
+        setApplications(updatedApps);
+      } else {
+        // Update existing application
+        const updatedApps = applications.map(app => 
+          app.appName === updatedApp.appName ? updatedApp : app
+        );
+        setApplications(updatedApps);
+      }
+      showSuccess('Success', editDialog.isNew ? 'Application added successfully' : 'Application updated successfully');
     } catch (error) {
-      console.error('Failed to update application:', error);
-      showError('Update Failed', 'Failed to update the application.');
+      console.error('Failed to save application:', error);
+      showError('Save Failed', 'Failed to save the application.');
     }
   };
 
@@ -122,10 +149,13 @@ const ApplicationsManager: React.FC = () => {
   const handleSaveChanges = async () => {
     try {
       setIsLoading(true);
+      console.log('Saving applications to backend:', applications);
       await updateSubmissionConfig(applications);
       setOriginalApplications(JSON.parse(JSON.stringify(applications)));
       setHasChanges(false);
       showSuccess('Success', 'All changes saved successfully');
+      // Reload data to ensure consistency
+      await fetchApplications();
     } catch (error) {
       console.error('Failed to save changes:', error);
       showError('Save Failed', 'Failed to save configuration changes.');
@@ -168,30 +198,39 @@ const ApplicationsManager: React.FC = () => {
                 {applications.length} apps
               </Badge>
             </CardTitle>
-            {hasChanges && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-amber-600">
-                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium">Unsaved changes</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDiscardChanges}
-                  disabled={isLoading}
-                >
-                  Discard
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSaveChanges}
-                  disabled={isLoading}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                >
-                  {isLoading ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleAddNew}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add New App
+              </Button>
+              {hasChanges && (
+                <>
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-medium">Unsaved changes</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDiscardChanges}
+                    disabled={isLoading}
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveChanges}
+                    disabled={isLoading}
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
+                    {isLoading ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -209,7 +248,11 @@ const ApplicationsManager: React.FC = () => {
                 <AlertCircle className="w-12 h-12 text-slate-400" />
               </div>
               <h3 className="text-xl font-semibold text-slate-700 mb-2">No Applications Found</h3>
-              <p className="text-slate-500">There are no applications to manage.</p>
+              <p className="text-slate-500 mb-4">There are no applications to manage.</p>
+              <Button onClick={handleAddNew} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 gap-2">
+                <Plus className="w-4 h-4" />
+                Add Your First App
+              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -244,21 +287,6 @@ const ApplicationsManager: React.FC = () => {
                           <User className="w-3 h-3 text-slate-400" />
                           <span className="font-medium">{app.applicationOwner}</span>
                         </div>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Maintenance Window</p>
-                        <div className="flex items-center gap-1 text-sm text-slate-600">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span>{app.maintenanceWindow}</span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Infrastructure Impact</p>
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
-                          {app.infrastructureImpact}
-                        </Badge>
                       </div>
 
                       <div>
@@ -314,10 +342,11 @@ const ApplicationsManager: React.FC = () => {
 
       <EditApplicationDialog
         isOpen={editDialog.isOpen}
-        onClose={() => setEditDialog({ isOpen: false, application: null })}
+        onClose={() => setEditDialog({ isOpen: false, application: null, isNew: false })}
         application={editDialog.application}
         onSave={handleSave}
         isLoading={isLoading}
+        isNew={editDialog.isNew}
       />
 
       <DeleteConfirmationDialog

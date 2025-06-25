@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Edit3, Save, X, Server, User, Clock, FileText, AlertTriangle } from 'lucide-react';
+import { Edit3, Save, X, Server, User, Clock, FileText, AlertTriangle, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,7 @@ interface EditApplicationDialogProps {
   application: AppData | null;
   onSave: (updatedApp: AppData) => Promise<void>;
   isLoading?: boolean;
+  isNew?: boolean;
 }
 
 const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
@@ -37,7 +38,8 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
   onClose,
   application,
   onSave,
-  isLoading = false
+  isLoading = false,
+  isNew = false
 }) => {
   const [editForm, setEditForm] = useState<AppData | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -45,9 +47,9 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
   useEffect(() => {
     if (application) {
       setEditForm({ ...application });
-      setHasChanges(false);
+      setHasChanges(isNew); // New apps always have changes
     }
-  }, [application]);
+  }, [application, isNew]);
 
   const handleFormChange = (field: keyof AppData, value: string | string[]) => {
     if (editForm) {
@@ -79,15 +81,17 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
 
   if (!editForm) return null;
 
+  const isFormValid = editForm.appName.trim() !== '' && editForm.changeNumber.trim() !== '';
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-xl">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Edit3 className="w-5 h-5 text-white" />
+              {isNew ? <Plus className="w-5 h-5 text-white" /> : <Edit3 className="w-5 h-5 text-white" />}
             </div>
-            Edit Application: {editForm.appName}
+            {isNew ? 'Add New Application' : `Edit Application: ${editForm.appName}`}
           </DialogTitle>
         </DialogHeader>
 
@@ -96,12 +100,12 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
           <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Server className="w-5 h-5 text-slate-600" />
-             Application Details
+              Application Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="appName" className="text-sm font-medium text-slate-700">
-                  Application Name
+                  Application Name *
                 </Label>
                 <Input
                   id="appName"
@@ -109,11 +113,12 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   onChange={(e) => handleFormChange('appName', e.target.value)}
                   className="bg-white"
                   placeholder="Enter application name"
+                  required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="changeNumber" className="text-sm font-medium text-slate-700">
-                  Change Number
+                  Change Number *
                 </Label>
                 <Input
                   id="changeNumber"
@@ -121,6 +126,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   onChange={(e) => handleFormChange('changeNumber', e.target.value)}
                   className="bg-white font-mono"
                   placeholder="CRQ1000000"
+                  required
                 />
               </div>
               <div className="space-y-2">
@@ -236,11 +242,11 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
             </Button>
             <Button
               onClick={handleSave}
-              disabled={isLoading || !hasChanges}
+              disabled={isLoading || !hasChanges || !isFormValid}
               className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
             >
               <Save className="w-4 h-4" />
-              {isLoading ? 'Saving...' : 'Save Changes'}
+              {isLoading ? 'Saving...' : isNew ? 'Create Application' : 'Save Changes'}
             </Button>
           </div>
         </div>
