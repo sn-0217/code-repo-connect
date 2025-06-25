@@ -4,9 +4,10 @@ import { Edit3, Trash2, Power, PowerOff, AlertCircle, Clock, User, Server, Eye }
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToastContext } from '@/contexts/ToastContext';
-import { loadApps } from '@/utils/testData';
+import { loadApps, updateSubmissionConfig } from '@/utils/testData';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
 import EditApplicationDialog from '@/components/EditApplicationDialog';
 
@@ -23,7 +24,9 @@ interface AppData {
 
 const ApplicationsManager: React.FC = () => {
   const [applications, setApplications] = useState<AppData[]>([]);
+  const [originalApplications, setOriginalApplications] = useState<AppData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasChanges, setHasChanges] = useState(false);
   const [editDialog, setEditDialog] = useState<{
     isOpen: boolean;
     application: AppData | null;
@@ -44,12 +47,19 @@ const ApplicationsManager: React.FC = () => {
     fetchApplications();
   }, []);
 
+  useEffect(() => {
+    // Check if there are any changes
+    const hasChangesNow = JSON.stringify(applications) !== JSON.stringify(originalApplications);
+    setHasChanges(hasChangesNow);
+  }, [applications, originalApplications]);
+
   const fetchApplications = async () => {
     try {
       setIsLoading(true);
       const apps = await loadApps();
       console.log('Loaded applications:', apps);
-      setApplications(apps.filter((app: AppData) => !app.disabled));
+      setApplications(apps);
+      setOriginalApplications(JSON.parse(JSON.stringify(apps))); // Deep copy
     } catch (error) {
       console.error('Failed to load applications:', error);
       showError('Failed to Load Applications', 'Unable to fetch application data.');
@@ -67,73 +77,26 @@ const ApplicationsManager: React.FC = () => {
 
   const handleSave = async (updatedApp: AppData) => {
     try {
-      setIsLoading(true);
-      
-      // Create updated apps list
+      // Update local state
       const updatedApps = applications.map(app => 
         app.appName === updatedApp.appName ? updatedApp : app
       );
       
-      // Call the backend to update the configuration
-      const response = await fetch('/api/update-submission-config', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedApps),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update application: ${response.status}`);
-      }
-      
-      // Update local state
       setApplications(updatedApps);
-      
       showSuccess('Success', 'Application updated successfully');
     } catch (error) {
       console.error('Failed to update application:', error);
       showError('Update Failed', 'Failed to update the application.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleToggleStatus = async (appName: string) => {
-    try {
-      const updatedApps = applications.map(app => 
-        app.appName === appName 
-          ? { ...app, disabled: !app.disabled }
-          : app
-      );
-      
-      // Call the backend to update the configuration
-      const response = await fetch('/api/update-submission-config', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedApps),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update application status: ${response.status}`);
-      }
-      
-      const app = applications.find(a => a.appName === appName);
-      const newStatus = app?.disabled ? 'enabled' : 'disabled';
-      
-      // Filter out disabled apps from the view
-      setApplications(updatedApps.filter(app => !app.disabled));
-      
-      showSuccess(
-        'Status Updated', 
-        `Application ${newStatus} successfully`
-      );
-    } catch (error) {
-      console.error('Failed to toggle application status:', error);
-      showError('Update Failed', 'Failed to update application status.');
-    }
+  const handleToggleStatus = (appName: string) => {
+    const updatedApps = applications.map(app => 
+      app.appName === appName 
+        ? { ...app, disabled: !app.disabled }
+        : app
+    );
+    setApplications(updatedApps);
   };
 
   const handleDeleteClick = (appName: string) => {
@@ -146,20 +109,6 @@ const ApplicationsManager: React.FC = () => {
   const handleDeleteConfirm = async () => {
     try {
       const updatedApps = applications.filter(app => app.appName !== deleteDialog.appName);
-      
-      // Call the backend to update the configuration
-      const response = await fetch('/api/update-submission-config', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedApps),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete application: ${response.status}`);
-      }
-      
       setApplications(updatedApps);
       showSuccess('Success', 'Application deleted successfully');
     } catch (error) {
@@ -170,116 +119,180 @@ const ApplicationsManager: React.FC = () => {
     }
   };
 
+  const handleSaveChanges = async () => {
+    try {
+      setIsLoading(true);
+      await updateSubmissionConfig(applications);
+      setOriginalApplications(JSON.parse(JSON.stringify(applications)));
+      setHasChanges(false);
+      showSuccess('Success', 'All changes saved successfully');
+    } catch (error) {
+      console.error('Failed to save changes:', error);
+      showError('Save Failed', 'Failed to save configuration changes.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setApplications(JSON.parse(JSON.stringify(originalApplications)));
+    setHasChanges(false);
+  };
+
+  const getStatusBadge = (app: AppData) => {
+    if (app.disabled) {
+      return (
+        <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
+          Disabled
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        Active
+      </Badge>
+    );
+  };
+
   return (
-    <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
-            <Power className="w-5 h-5 text-white" />
+    <div className="space-y-6">
+      <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-xl">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+                <Power className="w-5 h-5 text-white" />
+              </div>
+              Applications Management
+              <Badge variant="outline" className="bg-white/50">
+                {applications.length} apps
+              </Badge>
+            </CardTitle>
+            {hasChanges && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium">Unsaved changes</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDiscardChanges}
+                  disabled={isLoading}
+                >
+                  Discard
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveChanges}
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                >
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            )}
           </div>
-          Applications Management
-          <Badge variant="outline" className="bg-white/50">
-            {applications.length} apps
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-              <Power className="w-10 h-10 text-slate-400" />
+        </CardHeader>
+        <CardContent>
+          {isLoading && !hasChanges ? (
+            <div className="text-center py-12">
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                <Power className="w-10 h-10 text-slate-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-700 mb-2">Loading Applications...</h3>
+              <p className="text-slate-500">Please wait while we fetch the application data.</p>
             </div>
-            <h3 className="text-xl font-bold text-slate-700 mb-2">Loading Applications...</h3>
-            <p className="text-slate-500">Please wait while we fetch the application data.</p>
-          </div>
-        ) : applications.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center mx-auto mb-6">
-              <AlertCircle className="w-12 h-12 text-slate-400" />
+          ) : applications.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-12 h-12 text-slate-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-700 mb-2">No Applications Found</h3>
+              <p className="text-slate-500">There are no applications to manage.</p>
             </div>
-            <h3 className="text-xl font-semibold text-slate-700 mb-2">No Applications Found</h3>
-            <p className="text-slate-500">There are no applications to manage.</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead className="font-semibold text-slate-700">Application</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Change Info</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Owner & Schedule</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Impact</TableHead>
-                  <TableHead className="font-semibold text-slate-700">Hosts</TableHead>
-                  <TableHead className="font-semibold text-slate-700 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {applications.map((app, index) => (
-                  <TableRow key={app.appName} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Server className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-slate-900">{app.appName}</div>
-                          <div className="text-sm text-slate-500 truncate max-w-[200px]">
-                            {app.changeDescription}
-                          </div>
-                        </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {applications.map((app) => (
+                <Card key={app.appName} className="bg-white border-slate-200 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+                  <div className="absolute top-4 right-4">
+                    {getStatusBadge(app)}
+                  </div>
+                  
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Server className="w-6 h-6 text-white" />
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <code className="bg-slate-100 px-2 py-1 rounded text-sm font-mono">
-                          {app.changeNumber}
-                        </code>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-lg text-slate-900 truncate">{app.appName}</h3>
+                        <p className="text-sm text-slate-500 mt-1">Application</p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-2">
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Change Number</p>
+                        <code className="bg-slate-100 px-2 py-1 rounded text-sm font-mono">{app.changeNumber}</code>
+                      </div>
+                      
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Owner</p>
                         <div className="flex items-center gap-1 text-sm">
                           <User className="w-3 h-3 text-slate-400" />
                           <span className="font-medium">{app.applicationOwner}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-slate-500">
-                          <Clock className="w-3 h-3" />
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Maintenance Window</p>
+                        <div className="flex items-center gap-1 text-sm text-slate-600">
+                          <Clock className="w-3 h-3 text-slate-400" />
                           <span>{app.maintenanceWindow}</span>
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                        {app.infrastructureImpact}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Server className="w-3 h-3 text-slate-400" />
-                        <Badge variant="secondary" className="text-xs">
-                          {app.hosts.length} hosts
+
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Infrastructure Impact</p>
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                          {app.infrastructureImpact}
                         </Badge>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-2">
+
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Hosts</p>
+                        <div className="flex items-center gap-1">
+                          <Server className="w-3 h-3 text-slate-400" />
+                          <Badge variant="secondary" className="text-xs">
+                            {app.hosts.length} hosts
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-4">
+                        <Label htmlFor={`toggle-${app.appName}`} className="text-sm font-medium">
+                          Enable Application
+                        </Label>
+                        <Switch
+                          id={`toggle-${app.appName}`}
+                          checked={!app.disabled}
+                          onCheckedChange={() => handleToggleStatus(app.appName)}
+                        />
+                      </div>
+                      
+                      <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleEdit(app)}
-                          className="gap-1 hover:scale-105 transition-transform border-blue-200 text-blue-600 hover:bg-blue-50"
+                          className="flex-1 gap-1 hover:scale-105 transition-transform border-blue-200 text-blue-600 hover:bg-blue-50"
                         >
                           <Edit3 className="w-3 h-3" />
                           Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleStatus(app.appName)}
-                          className="gap-1 hover:scale-105 transition-transform border-amber-200 text-amber-600 hover:bg-amber-50"
-                        >
-                          <PowerOff className="w-3 h-3" />
-                          Disable
                         </Button>
                         <Button
                           variant="outline"
@@ -288,17 +301,16 @@ const ApplicationsManager: React.FC = () => {
                           className="gap-1 hover:scale-105 transition-transform border-rose-200 text-rose-600 hover:bg-rose-50"
                         >
                           <Trash2 className="w-3 h-3" />
-                          Delete
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <EditApplicationDialog
         isOpen={editDialog.isOpen}
@@ -316,7 +328,7 @@ const ApplicationsManager: React.FC = () => {
         description="Are you sure you want to delete this application? This action cannot be undone."
         itemName={deleteDialog.appName}
       />
-    </Card>
+    </div>
   );
 };
 
