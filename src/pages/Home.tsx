@@ -17,6 +17,18 @@ interface AppStatus {
   borderColor: string;
 }
 
+interface AppData {
+  appName: string;
+  changeNumber: string;
+  applicationOwner: string;
+  maintenanceWindow: string;
+  changeDescription: string;
+  infrastructureImpact: string;
+  hosts: string[];
+  disabled?: boolean;
+  appStatus?: string;
+}
+
 const Home = () => {
   const navigate = useNavigate();
   const { showError } = useToastContext();
@@ -37,13 +49,19 @@ const Home = () => {
         console.log('Starting API calls to Spring Boot backend...');
 
         // Load apps
-        const appsData = await loadApps();
+        const appsData: AppData[] = await loadApps();
         console.log('Apps data received:', appsData);
 
-        // Extract app names from AppData objects
-        const appNames = appsData.map((app: any) => app.appName);
+        // Filter only enabled apps and extract app names
+        const enabledApps = appsData.filter((app: AppData) => {
+          // Check appStatus first, then fall back to disabled field for backward compatibility
+          const isEnabled = app.appStatus ? app.appStatus === 'enabled' : !app.disabled;
+          return isEnabled;
+        });
+        
+        const appNames = enabledApps.map((app: AppData) => app.appName);
         setApps(appNames);
-        console.log('App names extracted:', appNames);
+        console.log('Enabled app names extracted:', appNames);
 
         // Load submissions
         const submissionsData = await loadSubmissions();
@@ -64,10 +82,12 @@ const Home = () => {
           environment: submission.formSubmission.environment
         }));
 
-        // Filter by current environment
-        const envSubmissions = transformedSubmissions.filter((s: any) => s.environment === currentEnv);
+        // Filter by current environment and only show submissions for enabled apps
+        const envSubmissions = transformedSubmissions.filter((s: any) => 
+          s.environment === currentEnv && appNames.includes(s.appName)
+        );
         setSubmissions(envSubmissions);
-        console.log('Filtered submissions for environment:', envSubmissions);
+        console.log('Filtered submissions for enabled apps in environment:', envSubmissions);
 
       } catch (err) {
         console.error('API Error:', err);
