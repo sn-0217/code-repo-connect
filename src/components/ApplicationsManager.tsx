@@ -5,6 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { useToastContext } from '@/contexts/ToastContext';
 import { loadApps, updateSubmissionConfig, updateApp, deleteApp } from '@/utils/testData';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
@@ -19,6 +26,7 @@ interface AppData {
   infrastructureImpact: string;
   hosts: string[];
   disabled?: boolean;
+  appStatus?: string;
 }
 
 const ApplicationsManager: React.FC = () => {
@@ -45,11 +53,11 @@ const ApplicationsManager: React.FC = () => {
   const [statusToggleDialog, setStatusToggleDialog] = useState<{
     isOpen: boolean;
     appName: string;
-    currentStatus: boolean;
+    newStatus: string;
   }>({
     isOpen: false,
     appName: '',
-    currentStatus: false
+    newStatus: ''
   });
   const { showError, showSuccess } = useToastContext();
 
@@ -95,7 +103,8 @@ const ApplicationsManager: React.FC = () => {
       changeDescription: '',
       infrastructureImpact: '',
       hosts: [],
-      disabled: false
+      disabled: false,
+      appStatus: 'enabled'
     };
     
     setEditDialog({
@@ -129,22 +138,23 @@ const ApplicationsManager: React.FC = () => {
     const app = applications.find(a => a.appName === appName);
     if (!app) return;
 
+    const isCurrentlyEnabled = app.appStatus === 'enabled' || (!app.appStatus && !app.disabled);
+    const newStatus = isCurrentlyEnabled ? 'disabled' : 'enabled';
+
     setStatusToggleDialog({
       isOpen: true,
       appName: appName,
-      currentStatus: !app.disabled
+      newStatus: newStatus
     });
   };
 
   const handleToggleStatusConfirm = async () => {
     try {
       const appName = statusToggleDialog.appName;
+      const newStatus = statusToggleDialog.newStatus;
       const app = applications.find(a => a.appName === appName);
       if (!app) return;
 
-      const newDisabledStatus = !app.disabled;
-      const statusToSend = newDisabledStatus ? 'disabled' : 'enabled';
-      
       // Make API call to update app status
       const response = await fetch(`/api/app/${encodeURIComponent(appName)}`, {
         method: 'PUT',
@@ -153,8 +163,8 @@ const ApplicationsManager: React.FC = () => {
         },
         body: JSON.stringify({
           ...app,
-          disabled: newDisabledStatus,
-          appStatus: statusToSend
+          appStatus: newStatus,
+          disabled: newStatus === 'disabled'
         }),
       });
 
@@ -162,24 +172,32 @@ const ApplicationsManager: React.FC = () => {
         throw new Error(`Failed to update app status: ${response.status}`);
       }
 
-      // Update applications state without affecting originalApplications (no change tracking)
+      // Update applications state - sync both disabled and appStatus
       const updatedApps = applications.map(a => 
-        a.appName === appName ? { ...a, disabled: newDisabledStatus } : a
+        a.appName === appName ? { 
+          ...a, 
+          disabled: newStatus === 'disabled',
+          appStatus: newStatus 
+        } : a
       );
       setApplications(updatedApps);
       
       // Also update originalApplications to prevent change tracking
       const updatedOriginalApps = originalApplications.map(a => 
-        a.appName === appName ? { ...a, disabled: newDisabledStatus } : a
+        a.appName === appName ? { 
+          ...a, 
+          disabled: newStatus === 'disabled',
+          appStatus: newStatus 
+        } : a
       );
       setOriginalApplications(updatedOriginalApps);
       
-      showSuccess('Success', `Application ${statusToSend} successfully`);
+      showSuccess('Success', `Application ${newStatus} successfully`);
     } catch (error) {
       console.error('Failed to update app status:', error);
       showError('Update Failed', 'Failed to update application status.');
     } finally {
-      setStatusToggleDialog({ isOpen: false, appName: '', currentStatus: false });
+      setStatusToggleDialog({ isOpen: false, appName: '', newStatus: '' });
     }
   };
 
@@ -227,7 +245,10 @@ const ApplicationsManager: React.FC = () => {
   };
 
   const getStatusBadge = (app: AppData) => {
-    if (app.disabled) {
+    // Check both appStatus and disabled fields for backward compatibility
+    const isDisabled = app.appStatus === 'disabled' || app.disabled;
+    
+    if (isDisabled) {
       return (
         <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
           Disabled
@@ -239,6 +260,14 @@ const ApplicationsManager: React.FC = () => {
         Active
       </Badge>
     );
+  };
+
+  const isAppEnabled = (app: AppData) => {
+    // Check appStatus first, then fall back to disabled field
+    if (app.appStatus) {
+      return app.appStatus === 'enabled';
+    }
+    return !app.disabled;
   };
 
   return (
@@ -364,7 +393,7 @@ const ApplicationsManager: React.FC = () => {
                         </Label>
                         <Switch
                           id={`toggle-${app.appName}`}
-                          checked={!app.disabled}
+                          checked={isAppEnabled(app)}
                           onCheckedChange={() => handleToggleStatusClick(app.appName)}
                         />
                       </div>
@@ -415,14 +444,41 @@ const ApplicationsManager: React.FC = () => {
         itemName={deleteDialog.appName}
       />
 
-      <DeleteConfirmationDialog
-        isOpen={statusToggleDialog.isOpen}
-        onClose={() => setStatusToggleDialog({ isOpen: false, appName: '', currentStatus: false })}
-        onConfirm={handleToggleStatusConfirm}
-        title={`${statusToggleDialog.currentStatus ? 'Disable' : 'Enable'} Application`}
-        description={`Are you sure you want to ${statusToggleDialog.currentStatus ? 'disable' : 'enable'} this application?`}
-        itemName={statusToggleDialog.appName}
-      />
+      <Dialog open={statusToggleDialog.isOpen} onOpenChange={() => setStatusToggleDialog({ isOpen: false, appName: '', newStatus: '' })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {statusToggleDialog.newStatus === 'enabled' ? (
+                <Power className="w-5 h-5 text-green-600" />
+              ) : (
+                <PowerOff className="w-5 h-5 text-red-600" />
+              )}
+              {statusToggleDialog.newStatus === 'enabled' ? 'Enable' : 'Disable'} Application
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to {statusToggleDialog.newStatus === 'enabled' ? 'enable' : 'disable'} the application "{statusToggleDialog.appName}"?
+              {statusToggleDialog.newStatus === 'disabled' && ' This will stop the application from running.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setStatusToggleDialog({ isOpen: false, appName: '', newStatus: '' })}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleToggleStatusConfirm}
+              className={statusToggleDialog.newStatus === 'enabled' 
+                ? "bg-green-600 hover:bg-green-700" 
+                : "bg-red-600 hover:bg-red-700"
+              }
+            >
+              {statusToggleDialog.newStatus === 'enabled' ? 'Enable' : 'Disable'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
