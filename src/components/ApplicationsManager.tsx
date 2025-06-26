@@ -42,6 +42,15 @@ const ApplicationsManager: React.FC = () => {
     isOpen: false,
     appName: ''
   });
+  const [statusToggleDialog, setStatusToggleDialog] = useState<{
+    isOpen: boolean;
+    appName: string;
+    currentStatus: boolean;
+  }>({
+    isOpen: false,
+    appName: '',
+    currentStatus: false
+  });
   const { showError, showSuccess } = useToastContext();
 
   useEffect(() => {
@@ -116,15 +125,24 @@ const ApplicationsManager: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (appName: string) => {
+  const handleToggleStatusClick = (appName: string) => {
+    const app = applications.find(a => a.appName === appName);
+    if (!app) return;
+
+    setStatusToggleDialog({
+      isOpen: true,
+      appName: appName,
+      currentStatus: !app.disabled
+    });
+  };
+
+  const handleToggleStatusConfirm = async () => {
     try {
+      const appName = statusToggleDialog.appName;
       const app = applications.find(a => a.appName === appName);
       if (!app) return;
 
       const newDisabledStatus = !app.disabled;
-      const updatedApp = { ...app, disabled: newDisabledStatus };
-      
-      // Send the correct status string to match backend expectation
       const statusToSend = newDisabledStatus ? 'disabled' : 'enabled';
       
       // Make API call to update app status
@@ -134,7 +152,8 @@ const ApplicationsManager: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...updatedApp,
+          ...app,
+          disabled: newDisabledStatus,
           appStatus: statusToSend
         }),
       });
@@ -143,16 +162,24 @@ const ApplicationsManager: React.FC = () => {
         throw new Error(`Failed to update app status: ${response.status}`);
       }
 
-      // Update local state only after successful API call
-      const updatedApps = applications.map(app => 
-        app.appName === appName ? updatedApp : app
+      // Update applications state without affecting originalApplications (no change tracking)
+      const updatedApps = applications.map(a => 
+        a.appName === appName ? { ...a, disabled: newDisabledStatus } : a
       );
       setApplications(updatedApps);
+      
+      // Also update originalApplications to prevent change tracking
+      const updatedOriginalApps = originalApplications.map(a => 
+        a.appName === appName ? { ...a, disabled: newDisabledStatus } : a
+      );
+      setOriginalApplications(updatedOriginalApps);
       
       showSuccess('Success', `Application ${statusToSend} successfully`);
     } catch (error) {
       console.error('Failed to update app status:', error);
       showError('Update Failed', 'Failed to update application status.');
+    } finally {
+      setStatusToggleDialog({ isOpen: false, appName: '', currentStatus: false });
     }
   };
 
@@ -338,7 +365,7 @@ const ApplicationsManager: React.FC = () => {
                         <Switch
                           id={`toggle-${app.appName}`}
                           checked={!app.disabled}
-                          onCheckedChange={() => handleToggleStatus(app.appName)}
+                          onCheckedChange={() => handleToggleStatusClick(app.appName)}
                         />
                       </div>
                       
@@ -386,6 +413,15 @@ const ApplicationsManager: React.FC = () => {
         title="Delete Application"
         description="Are you sure you want to delete this application? This action cannot be undone."
         itemName={deleteDialog.appName}
+      />
+
+      <DeleteConfirmationDialog
+        isOpen={statusToggleDialog.isOpen}
+        onClose={() => setStatusToggleDialog({ isOpen: false, appName: '', currentStatus: false })}
+        onConfirm={handleToggleStatusConfirm}
+        title={`${statusToggleDialog.currentStatus ? 'Disable' : 'Enable'} Application`}
+        description={`Are you sure you want to ${statusToggleDialog.currentStatus ? 'disable' : 'enable'} this application?`}
+        itemName={statusToggleDialog.appName}
       />
     </div>
   );
