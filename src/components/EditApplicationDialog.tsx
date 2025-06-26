@@ -60,7 +60,11 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
 
   const handleHostsChange = (value: string) => {
     if (editForm) {
-      const hosts = value.split(/[,\n]/).map(host => host.trim()).filter(host => host.length > 0);
+      // Split by both comma and newline, then filter empty strings
+      const hosts = value
+        .split(/[,\n]+/)
+        .map(host => host.trim())
+        .filter(host => host.length > 0);
       setEditForm({ ...editForm, hosts });
       setHasChanges(true);
     }
@@ -85,7 +89,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-xl">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -111,7 +115,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   id="appName"
                   value={editForm.appName}
                   onChange={(e) => handleFormChange('appName', e.target.value)}
-                  className="bg-white"
+                  className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                   placeholder="Enter application name"
                   required
                 />
@@ -124,7 +128,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   id="changeNumber"
                   value={editForm.changeNumber}
                   onChange={(e) => handleFormChange('changeNumber', e.target.value)}
-                  className="bg-white font-mono"
+                  className="bg-white font-mono border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                   placeholder="CRQ1000000"
                   required
                 />
@@ -138,7 +142,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   id="applicationOwner"
                   value={editForm.applicationOwner}
                   onChange={(e) => handleFormChange('applicationOwner', e.target.value)}
-                  className="bg-white"
+                  className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                   placeholder="Owner name"
                 />
               </div>
@@ -151,7 +155,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   id="maintenanceWindow"
                   value={editForm.maintenanceWindow}
                   onChange={(e) => handleFormChange('maintenanceWindow', e.target.value)}
-                  className="bg-white"
+                  className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                   placeholder="Sat, 12:00 AM – 4:00 AM"
                 />
               </div>
@@ -173,7 +177,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   id="changeDescription"
                   value={editForm.changeDescription}
                   onChange={(e) => handleFormChange('changeDescription', e.target.value)}
-                  className="bg-white min-h-[100px] resize-none"
+                  className="bg-white min-h-[100px] resize-none border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                   placeholder="Describe the changes being made..."
                 />
               </div>
@@ -186,7 +190,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                   id="infrastructureImpact"
                   value={editForm.infrastructureImpact}
                   onChange={(e) => handleFormChange('infrastructureImpact', e.target.value)}
-                  className="bg-white"
+                  className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                   placeholder="X servers affected"
                 />
               </div>
@@ -210,8 +214,12 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                 id="hosts"
                 value={editForm.hosts.join('\n')}
                 onChange={(e) => handleHostsChange(e.target.value)}
-                className="bg-white min-h-[150px] font-mono text-sm resize-none"
+                className="bg-white min-h-[150px] font-mono text-sm resize-none border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                 placeholder="server1.company.com&#10;server2.company.com&#10;server3.company.com"
+                onKeyDown={(e) => {
+                  // Allow all key presses including Enter and comma
+                  e.stopPropagation();
+                }}
               />
               <p className="text-xs text-slate-500">
                 Enter each host on a new line or separate with commas
@@ -221,7 +229,7 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-6 border-t">
+        <div className="flex items-center justify-between pt-6 border-t bg-white">
           <div className="flex items-center gap-2 text-sm text-slate-500">
             {hasChanges && (
               <div className="flex items-center gap-1 text-amber-600">

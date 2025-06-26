@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Edit3, Trash2, Power, PowerOff, AlertCircle, Clock, User, Server, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -117,13 +116,37 @@ const ApplicationsManager: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = (appName: string) => {
-    const updatedApps = applications.map(app => 
-      app.appName === appName 
-        ? { ...app, disabled: !app.disabled }
-        : app
-    );
-    setApplications(updatedApps);
+  const handleToggleStatus = async (appName: string) => {
+    try {
+      const app = applications.find(a => a.appName === appName);
+      if (!app) return;
+
+      const updatedApp = { ...app, disabled: !app.disabled };
+      
+      // Make API call to update app status
+      const response = await fetch(`/api/app/${encodeURIComponent(appName)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedApp),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update app status: ${response.status}`);
+      }
+
+      // Update local state only after successful API call
+      const updatedApps = applications.map(app => 
+        app.appName === appName ? updatedApp : app
+      );
+      setApplications(updatedApps);
+      
+      showSuccess('Success', `Application ${updatedApp.disabled ? 'disabled' : 'enabled'} successfully`);
+    } catch (error) {
+      console.error('Failed to update app status:', error);
+      showError('Update Failed', 'Failed to update application status.');
+    }
   };
 
   const handleDeleteClick = (appName: string) => {
