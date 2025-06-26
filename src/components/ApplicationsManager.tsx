@@ -121,7 +121,11 @@ const ApplicationsManager: React.FC = () => {
       const app = applications.find(a => a.appName === appName);
       if (!app) return;
 
-      const updatedApp = { ...app, disabled: !app.disabled };
+      const newDisabledStatus = !app.disabled;
+      const updatedApp = { ...app, disabled: newDisabledStatus };
+      
+      // Send the correct status string to match backend expectation
+      const statusToSend = newDisabledStatus ? 'disabled' : 'enabled';
       
       // Make API call to update app status
       const response = await fetch(`/api/app/${encodeURIComponent(appName)}`, {
@@ -129,7 +133,10 @@ const ApplicationsManager: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedApp),
+        body: JSON.stringify({
+          ...updatedApp,
+          appStatus: statusToSend
+        }),
       });
 
       if (!response.ok) {
@@ -142,7 +149,7 @@ const ApplicationsManager: React.FC = () => {
       );
       setApplications(updatedApps);
       
-      showSuccess('Success', `Application ${updatedApp.disabled ? 'disabled' : 'enabled'} successfully`);
+      showSuccess('Success', `Application ${statusToSend} successfully`);
     } catch (error) {
       console.error('Failed to update app status:', error);
       showError('Update Failed', 'Failed to update application status.');
