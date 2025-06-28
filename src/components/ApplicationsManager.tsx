@@ -66,7 +66,7 @@ const ApplicationsManager: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Check if there are any changes
+    // Check if there are any changes (excluding status changes since they're handled via API)
     const hasChangesNow = JSON.stringify(applications) !== JSON.stringify(originalApplications);
     setHasChanges(hasChangesNow);
   }, [applications, originalApplications]);
@@ -172,7 +172,7 @@ const ApplicationsManager: React.FC = () => {
         throw new Error(`Failed to update app status: ${response.status}`);
       }
 
-      // Update applications state - sync both disabled and appStatus
+      // Update both applications and originalApplications to prevent change tracking for status changes
       const updatedApps = applications.map(a => 
         a.appName === appName ? { 
           ...a, 
@@ -182,7 +182,6 @@ const ApplicationsManager: React.FC = () => {
       );
       setApplications(updatedApps);
       
-      // Also update originalApplications to prevent change tracking
       const updatedOriginalApps = originalApplications.map(a => 
         a.appName === appName ? { 
           ...a, 
@@ -245,10 +244,10 @@ const ApplicationsManager: React.FC = () => {
   };
 
   const getStatusBadge = (app: AppData) => {
-    // Check both appStatus and disabled fields for backward compatibility
-    const isDisabled = app.appStatus === 'disabled' || app.disabled;
+    // Check appStatus first, then fall back to disabled field for backward compatibility
+    const isEnabled = app.appStatus === 'enabled' || (!app.appStatus && !app.disabled);
     
-    if (isDisabled) {
+    if (!isEnabled) {
       return (
         <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
           Disabled
@@ -263,11 +262,8 @@ const ApplicationsManager: React.FC = () => {
   };
 
   const isAppEnabled = (app: AppData) => {
-    // Check appStatus first, then fall back to disabled field
-    if (app.appStatus) {
-      return app.appStatus === 'enabled';
-    }
-    return !app.disabled;
+    // Check appStatus first, then fall back to disabled field for backward compatibility
+    return app.appStatus === 'enabled' || (!app.appStatus && !app.disabled);
   };
 
   return (
