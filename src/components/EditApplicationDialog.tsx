@@ -216,10 +216,6 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                 onChange={(e) => handleHostsChange(e.target.value)}
                 className="bg-white min-h-[150px] font-mono text-sm resize-none border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                 placeholder="server1.company.com&#10;server2.company.com&#10;server3.company.com"
-                onKeyDown={(e) => {
-                  // Allow all key presses including Enter and comma
-                  e.stopPropagation();
-                }}
               />
               <p className="text-xs text-slate-500">
                 Enter each host on a new line or separate with commas

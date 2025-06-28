@@ -34,6 +34,7 @@ const ApplicationsManager: React.FC = () => {
   const [originalApplications, setOriginalApplications] = useState<AppData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasChanges, setHasChanges] = useState(false);
+  const [changedApps, setChangedApps] = useState<Set<string>>(new Set());
   const [editDialog, setEditDialog] = useState<{
     isOpen: boolean;
     application: AppData | null;
@@ -66,9 +67,35 @@ const ApplicationsManager: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Check if there are any changes (excluding status changes since they're handled via API)
-    const hasChangesNow = JSON.stringify(applications) !== JSON.stringify(originalApplications);
-    setHasChanges(hasChangesNow);
+    // Check for changes and identify which apps have changed
+    const newChangedApps = new Set<string>();
+    let hasAnyChanges = false;
+
+    applications.forEach(app => {
+      const originalApp = originalApplications.find(orig => orig.appName === app.appName);
+      if (originalApp) {
+        // Create comparison objects without status fields since those are handled separately
+        const { appStatus: _, disabled: __, ...appWithoutStatus } = app;
+        const { appStatus: ___, disabled: ____, ...originalWithoutStatus } = originalApp;
+        
+        if (JSON.stringify(appWithoutStatus) !== JSON.stringify(originalWithoutStatus)) {
+          newChangedApps.add(app.appName);
+          hasAnyChanges = true;
+        }
+      }
+    });
+
+    // Check for new apps (not in original)
+    const newApps = applications.filter(app => 
+      !originalApplications.some(orig => orig.appName === app.appName)
+    );
+    newApps.forEach(app => {
+      newChangedApps.add(app.appName);
+      hasAnyChanges = true;
+    });
+
+    setChangedApps(newChangedApps);
+    setHasChanges(hasAnyChanges);
   }, [applications, originalApplications]);
 
   const fetchApplications = async () => {
@@ -227,6 +254,7 @@ const ApplicationsManager: React.FC = () => {
       await updateSubmissionConfig(applications);
       setOriginalApplications(JSON.parse(JSON.stringify(applications)));
       setHasChanges(false);
+      setChangedApps(new Set());
       showSuccess('Success', 'All changes saved successfully');
       // Reload data to ensure consistency
       await fetchApplications();
@@ -241,6 +269,7 @@ const ApplicationsManager: React.FC = () => {
   const handleDiscardChanges = () => {
     setApplications(JSON.parse(JSON.stringify(originalApplications)));
     setHasChanges(false);
+    setChangedApps(new Set());
   };
 
   const getStatusBadge = (app: AppData) => {
@@ -281,15 +310,8 @@ const ApplicationsManager: React.FC = () => {
               </Badge>
             </CardTitle>
             <div className="flex items-center gap-3">
-              <Button
-                onClick={handleAddNew}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add New App
-              </Button>
               {hasChanges && (
-                <>
+                <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 text-amber-600">
                     <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
                     <span className="text-sm font-medium">Unsaved changes</span>
@@ -310,8 +332,15 @@ const ApplicationsManager: React.FC = () => {
                   >
                     {isLoading ? 'Saving...' : 'Save Changes'}
                   </Button>
-                </>
+                </div>
               )}
+              <Button
+                onClick={handleAddNew}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add New App
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -339,8 +368,15 @@ const ApplicationsManager: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {applications.map((app) => (
-                <Card key={app.appName} className="bg-white border-slate-200 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-                  <div className="absolute top-4 right-4">
+                <Card key={app.appName} className={`bg-white border-slate-200 hover:shadow-lg transition-all duration-300 relative overflow-hidden ${
+                  changedApps.has(app.appName) ? 'ring-2 ring-amber-400 border-amber-300' : ''
+                }`}>
+                  <div className="absolute top-4 right-4 flex items-center gap-2">
+                    {changedApps.has(app.appName) && (
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-xs">
+                        Unsaved
+                      </Badge>
+                    )}
                     {getStatusBadge(app)}
                   </div>
                   
