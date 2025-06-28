@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Edit3, Trash2, Power, PowerOff, AlertCircle, Clock, User, Server, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToastContext } from '@/contexts/ToastContext';
 import { loadApps, updateSubmissionConfig, updateApp, deleteApp } from '@/utils/testData';
 import DeleteConfirmationDialog from '@/components/DeleteConfirmationDialog';
@@ -60,6 +71,7 @@ const ApplicationsManager: React.FC = () => {
     appName: '',
     newStatus: ''
   });
+  const [saveConfirmDialog, setSaveConfirmDialog] = useState(false);
   const { showError, showSuccess } = useToastContext();
 
   useEffect(() => {
@@ -263,6 +275,7 @@ const ApplicationsManager: React.FC = () => {
       showError('Save Failed', 'Failed to save configuration changes.');
     } finally {
       setIsLoading(false);
+      setSaveConfirmDialog(false);
     }
   };
 
@@ -311,28 +324,20 @@ const ApplicationsManager: React.FC = () => {
             </CardTitle>
             <div className="flex items-center gap-3">
               {hasChanges && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">Unsaved changes</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDiscardChanges}
-                    disabled={isLoading}
-                  >
-                    Discard
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSaveChanges}
-                    disabled={isLoading}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                  >
-                    {isLoading ? 'Saving...' : 'Save Changes'}
-                  </Button>
+                <div className="flex items-center gap-2 text-amber-600">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium">Unsaved changes</span>
                 </div>
+              )}
+              {hasChanges && (
+                <Button
+                  size="sm"
+                  onClick={() => setSaveConfirmDialog(true)}
+                  disabled={isLoading}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                >
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+                </Button>
               )}
               <Button
                 onClick={handleAddNew}
@@ -511,6 +516,23 @@ const ApplicationsManager: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={saveConfirmDialog} onOpenChange={setSaveConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Do you want to save all the changes? This will update the application configurations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveChanges} disabled={isLoading}>
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

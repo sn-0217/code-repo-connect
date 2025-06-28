@@ -42,19 +42,16 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
   isNew = false
 }) => {
   const [editForm, setEditForm] = useState<AppData | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     if (application) {
       setEditForm({ ...application });
-      setHasChanges(isNew); // New apps always have changes
     }
   }, [application, isNew]);
 
   const handleFormChange = (field: keyof AppData, value: string | string[]) => {
     if (editForm) {
       setEditForm({ ...editForm, [field]: value });
-      setHasChanges(true);
     }
   };
 
@@ -66,20 +63,17 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
         .map(host => host.trim())
         .filter(host => host.length > 0);
       setEditForm({ ...editForm, hosts });
-      setHasChanges(true);
     }
   };
 
   const handleSave = async () => {
-    if (editForm && hasChanges) {
+    if (editForm) {
       await onSave(editForm);
-      setHasChanges(false);
       onClose();
     }
   };
 
   const handleClose = () => {
-    setHasChanges(false);
     onClose();
   };
 
@@ -214,8 +208,9 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
                 id="hosts"
                 value={editForm.hosts.join('\n')}
                 onChange={(e) => handleHostsChange(e.target.value)}
-                className="bg-white min-h-[150px] font-mono text-sm resize-none border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+                className="bg-white min-h-[150px] font-mono text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                 placeholder="server1.company.com&#10;server2.company.com&#10;server3.company.com"
+                style={{ resize: 'vertical' }}
               />
               <p className="text-xs text-slate-500">
                 Enter each host on a new line or separate with commas
@@ -225,34 +220,24 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-6 border-t bg-white">
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            {hasChanges && (
-              <div className="flex items-center gap-1 text-amber-600">
-                <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                Unsaved changes
-              </div>
-            )}
-          </div>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={isLoading}
-              className="gap-2"
-            >
-              <X className="w-4 h-4" />
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={isLoading || !hasChanges || !isFormValid}
-              className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-            >
-              <Save className="w-4 h-4" />
-              {isLoading ? 'Saving...' : isNew ? 'Create Application' : 'Save Changes'}
-            </Button>
-          </div>
+        <div className="flex items-center justify-end pt-6 border-t bg-white gap-3">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={isLoading}
+            className="gap-2"
+          >
+            <X className="w-4 h-4" />
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isLoading || !isFormValid}
+            className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+          >
+            <Save className="w-4 h-4" />
+            {isLoading ? 'Saving...' : isNew ? 'Create Application' : 'Save Changes'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
