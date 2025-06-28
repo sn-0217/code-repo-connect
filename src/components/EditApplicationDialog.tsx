@@ -204,12 +204,12 @@ const EditApplicationDialog: React.FC<EditApplicationDialogProps> = ({
               <Label htmlFor="hosts" className="text-sm font-medium text-slate-700">
                 Hosts (one per line or comma-separated)
               </Label>
-              <Textarea
+              <textarea
                 id="hosts"
                 value={editForm.hosts.join('\n')}
                 onChange={(e) => handleHostsChange(e.target.value)}
-                className="bg-white min-h-[150px] font-mono text-sm border-slate-300 focus:border-blue-500 focus:ring-blue-500"
-                placeholder="server1.company.com&#10;server2.company.com&#10;server3.company.com"
+                className="flex min-h-[150px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-mono placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder={'server1.company.com\nserver2.company.com\nserver3.company.com'}
                 style={{ resize: 'vertical' }}
               />
               <p className="text-xs text-slate-500">

@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Edit3, Trash2, Power, PowerOff, AlertCircle, Clock, User, Server, Plus } from 'lucide-react';
+import { Edit3, Trash2, Power, PowerOff, AlertCircle, Clock, User, Server, Plus, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -334,8 +333,9 @@ const ApplicationsManager: React.FC = () => {
                   size="sm"
                   onClick={() => setSaveConfirmDialog(true)}
                   disabled={isLoading}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 gap-2"
                 >
+                  <Save className="w-4 h-4" />
                   {isLoading ? 'Saving...' : 'Save Changes'}
                 </Button>
               )}
